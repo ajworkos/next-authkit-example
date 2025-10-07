@@ -10,6 +10,7 @@
     "start-local-dev": "rm -rf .next && npm run prepare && npm run dev",
     "lint": "next lint",
     "prepare": "relative-deps",
+    "playwright:install": "playwright install",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
     "test:playwright:debug": "playwright test --debug",
@@ -26,7 +27,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.0",
+    "@playwright/test": "1.41.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -35,6 +36,7 @@
     "dotenv": "^17.2.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.5",
+    "jose": "5.2.3",
     "relative-deps": "^1.0.7",
     "typescript": "^5"
   },
