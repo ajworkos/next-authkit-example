@@ -1,6 +1,5 @@
 interface AuthenticateWithWorkOSParams {
   email: string;
-  password: string;
 }
 
 interface AuthenticateWithWorkOSResponse {
@@ -12,7 +11,7 @@ interface AuthenticateWithWorkOSResponse {
 
 declare namespace Cypress {
   interface Chainable {
-    login(username: string, password: string): Chainable<void>;
+    login(username: string): Chainable<void>;
 
     task(
       event: "authenticateWithWorkOS",
