@@ -66,16 +66,6 @@ describe("Public Features", () => {
 });
 ```
 
-## Test Endpoint
-
-The tests use the following API endpoint for programmatic authentication and session creation:
-
-**Endpoint:** `POST /api/test/set-session`
-
-- **Purpose:** Create session from authentication tokens
-- **Body:** `{ user, accessToken, refreshToken }`
-- **Response:** Uses WorkOS AuthKit's `saveSession` method to create encrypted session cookie
-
 The endpoint is to be used for testing purposes only and is recommended to be disabled in production environments.
 
 ## Files
