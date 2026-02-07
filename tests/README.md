@@ -60,9 +60,7 @@ test.describe("Public Features", () => {
 **Flow:**
 
 1. API authentication via WorkOS SDK
-2. Session creation via `saveSession` endpoint
-3. Cookie extraction and browser injection
-4. Page navigation with authenticated state
+2. Set the WorkOS session cookie in the browser
 
 ## Files
 
