@@ -66,8 +66,6 @@ describe("Public Features", () => {
 });
 ```
 
-The endpoint is to be used for testing purposes only and is recommended to be disabled in production environments.
-
 ## Files
 
 - `plugins/workos.ts` - WorkOS authentication plugin
