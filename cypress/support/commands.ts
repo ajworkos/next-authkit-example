@@ -3,13 +3,13 @@
  * Uses cy.session for caching per username-password combination
  * Follows the same pattern as Playwright tests
  */
-Cypress.Commands.add("login", (username, password) => {
-  if (!username || !password) {
-    throw new Error("Both username and password are required");
+Cypress.Commands.add("login", (username) => {
+  if (!username) {
+    throw new Error("Username is required");
   }
 
   // Create cache key from username and password
-  const sessionId = `${username}-${password}`;
+  const sessionId = `${username}`;
 
   cy.session(
     sessionId,
@@ -22,7 +22,6 @@ Cypress.Commands.add("login", (username, password) => {
       return cy
         .task("authenticateWithWorkOS", {
           email: username, // Treat username as email
-          password: password,
         })
         .then((authResponse) => {
           cy.log("API authentication successful");

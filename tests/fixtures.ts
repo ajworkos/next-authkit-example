@@ -4,7 +4,6 @@ import { WorkOS } from "@workos-inc/node";
 // User configuration map - now keyed by email-password
 interface TestUser {
   email: string;
-  password: string;
   cookies?: any[]; // Cached cookies
 }
 
@@ -29,22 +28,20 @@ const COOKIE_DOMAIN = process.env.TEST_BASE_URL
 
 async function authenticateUser(
   email: string,
-  password: string,
   context: BrowserContext,
 ): Promise<void> {
-  if (!email || !password) {
+  if (!email) {
     throw new Error("Both email and password are required");
   }
 
   // Create cache key from email and password
-  const cacheKey = `${email}-${password}`;
+  const cacheKey = `${email}`;
   let user = userCache[cacheKey];
 
   // Initialize user in cache if not exists
   if (!user) {
     user = userCache[cacheKey] = {
       email,
-      password,
     };
   }
 
@@ -71,11 +68,16 @@ async function authenticateUser(
   });
 
   try {
-    // Step 1: Get tokens from WorkOS API
-    const authResponse = await workos.userManagement.authenticateWithPassword({
-      clientId: workosClientId,
+    // create a magic auth token
+    const magicAuthToken = await workos.userManagement.createMagicAuth({
       email,
-      password,
+    });
+
+    // Step 1: Get tokens from WorkOS API
+    const authResponse = await workos.userManagement.authenticateWithMagicAuth({
+      clientId: workosClientId,
+      code: magicAuthToken.code,
+      email,
       session: {
         sealSession: true,
         cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
@@ -107,13 +109,12 @@ async function authenticateUser(
 // Create extended test with email/password fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   email: [undefined, { option: true }], // Email for authentication (optional)
-  password: [undefined, { option: true }], // Password for authentication (optional)
 
   // Override the default page fixture to handle authentication
-  page: async ({ page, email, password, context }, use) => {
-    if (email && password) {
+  page: async ({ page, email, context }, use) => {
+    if (email) {
       // Authenticate the user with email/password before providing the page
-      await authenticateUser(email, password, context);
+      await authenticateUser(email, context);
     }
     // If email/password not provided, page remains unauthenticated
     await use(page);
