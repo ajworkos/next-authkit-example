@@ -30,8 +30,7 @@ const COOKIE_DOMAIN = process.env.TEST_BASE_URL
 async function authenticateUser(
   email: string,
   password: string,
-  request: any,
-  context: BrowserContext
+  context: BrowserContext,
 ): Promise<void> {
   if (!email || !password) {
     throw new Error("Both email and password are required");
@@ -63,7 +62,7 @@ async function authenticateUser(
 
   if (!workosApiKey || !workosClientId) {
     throw new Error(
-      "Missing WORKOS_API_KEY or WORKOS_CLIENT_ID environment variables"
+      "Missing WORKOS_API_KEY or WORKOS_CLIENT_ID environment variables",
     );
   }
 
@@ -77,71 +76,28 @@ async function authenticateUser(
       clientId: workosClientId,
       email,
       password,
+      session: {
+        sealSession: true,
+        cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
+      },
     });
 
-    // Step 2: Save session via our test endpoint
-    const baseURL = process.env.TEST_BASE_URL;
-    const sessionResponse = await request.post(
-      `${baseURL}/api/test/set-session`,
-      {
-        data: {
-          user: authResponse.user,
-          accessToken: authResponse.accessToken,
-          refreshToken: authResponse.refreshToken,
-        },
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const cookie = {
+      name: COOKIE_NAME,
+      value: authResponse.sealedSession || "",
+      domain: COOKIE_DOMAIN,
+      path: "/",
+      httpOnly: true,
+      secure: false,
+      sameSite: "Lax" as const,
+    };
 
-    if (!sessionResponse.ok()) {
-      const errorText = await sessionResponse.text();
-      throw new Error(
-        `Authentication failed: ${sessionResponse.status()} - ${errorText}`
-      );
-    }
+    // Cache cookies for user
+    user.cookies = [cookie];
 
-    // Step 3: Extract and cache cookies
-    const responseCookies = sessionResponse.headers()["set-cookie"];
-    if (responseCookies) {
-      const cookies = [];
-      const cookieStrings = Array.isArray(responseCookies)
-        ? responseCookies
-        : [responseCookies];
-
-      for (const cookieString of cookieStrings) {
-        if (cookieString && cookieString.includes(COOKIE_NAME)) {
-          const [nameValue] = cookieString.split(";");
-          const [name, value] = nameValue.split("=");
-
-          const cookie = {
-            name: name.trim(),
-            value: value.trim(),
-            domain: COOKIE_DOMAIN,
-            path: "/",
-            httpOnly: true,
-            secure: false,
-            sameSite: "Lax" as const,
-          };
-
-          cookies.push(cookie);
-        }
-      }
-
-      if (cookies.length > 0) {
-        // Cache cookies for user
-        user.cookies = cookies;
-
-        // Add cookies to current context
-        await context.addCookies(cookies);
-        console.log(`Authenticated and cached user: ${email}`);
-      } else {
-        throw new Error(`No ${COOKIE_NAME} cookie found in response`);
-      }
-    } else {
-      throw new Error("No Set-Cookie header found in response");
-    }
+    // Add cookies to current context
+    await context.addCookies(user.cookies);
+    console.log(`Authenticated and cached user: ${email}`);
   } catch (error) {
     console.error(`Authentication failed for user ${email}:`, error);
     throw error;
@@ -154,10 +110,10 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
   password: [undefined, { option: true }], // Password for authentication (optional)
 
   // Override the default page fixture to handle authentication
-  page: async ({ page, email, password, request, context }, use) => {
+  page: async ({ page, email, password, context }, use) => {
     if (email && password) {
       // Authenticate the user with email/password before providing the page
-      await authenticateUser(email, password, request, context);
+      await authenticateUser(email, password, context);
     }
     // If email/password not provided, page remains unauthenticated
     await use(page);
