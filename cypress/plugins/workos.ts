@@ -1,38 +1,26 @@
-import type { PluginEvents, PluginConfigOptions } from "cypress";
-
-interface AuthenticateParams {
-  email: string;
-  password: string;
-  workosApiKey: string;
-  workosClientId: string;
-}
-
 /**
  * WorkOS authentication plugin for Cypress
  * Provides tasks for programmatic authentication using WorkOS SDK
  */
 export function registerWorkOSTasks(
-  on: PluginEvents,
-  config: PluginConfigOptions
+  on: Cypress.PluginEvents,
+  config: Cypress.PluginConfigOptions,
 ) {
   on("task", {
-    authenticateWithWorkOS({
-      email,
-      password,
-      workosApiKey,
-      workosClientId,
-    }: AuthenticateParams) {
-      // Import WorkOS SDK in Node.js context (can't be imported in browser context)
-      const { WorkOS } = require("@workos-inc/node");
-
-      const workos = new WorkOS(workosApiKey, {
-        apiHostname: process.env.WORKOS_API_HOSTNAME,
+    async authenticateWithWorkOS({ email, password }) {
+      const { WorkOS } = await import("@workos-inc/node");
+      const workos = new WorkOS(process.env.WORKOS_API_KEY!, {
+        apiHostname: process.env.WORKOS_API_HOSTNAME!,
       });
 
       return workos.userManagement.authenticateWithPassword({
-        clientId: workosClientId,
+        clientId: process.env.WORKOS_CLIENT_ID!,
         email,
         password,
+        session: {
+          sealSession: true,
+          cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
+        },
       });
     },
   });
