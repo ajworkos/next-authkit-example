@@ -1,7 +1,12 @@
+import { testUsers } from "../../tests/test-users";
+
+// Use a named profile from tests/test-users.ts
+// Switch to "passwordUser" to test with password auth instead
+const USER_PROFILE = "magicAuthUser";
+
 describe("Authenticated User Flows", () => {
   beforeEach(() => {
-    // Use username/password from environment variables
-    cy.login(Cypress.env("TEST_EMAIL"), Cypress.env("TEST_PASSWORD"));
+    cy.login(USER_PROFILE);
   });
 
   it("homepage shows authenticated state", () => {
@@ -49,7 +54,7 @@ describe("Authenticated User Flows", () => {
 
     // Should see the email address in a readonly input
     cy.get("input[readonly]")
-      .filter(`[value="${Cypress.env("TEST_EMAIL")}"]`)
+      .filter(`[value="${testUsers[USER_PROFILE].email}"]`)
       .should("exist");
 
     // Should see user ID field

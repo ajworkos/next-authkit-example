@@ -27,8 +27,6 @@ export default defineConfig({
         WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID,
         WORKOS_API_KEY: process.env.WORKOS_API_KEY,
         TEST_BASE_URL: process.env.TEST_BASE_URL,
-        TEST_EMAIL: process.env.TEST_EMAIL,
-        TEST_PASSWORD: process.env.TEST_PASSWORD,
       };
       return config;
     },

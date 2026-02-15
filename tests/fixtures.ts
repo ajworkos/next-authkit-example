@@ -1,24 +1,59 @@
 import { test as base, expect, type BrowserContext } from "@playwright/test";
 import { WorkOS } from "@workos-inc/node";
+import fs from "fs";
+import {
+  testUsers,
+  TEST_USERS_STATE_PATH,
+  type TestUserConfig,
+  type TestUserState,
+} from "./test-users";
 
-// User configuration map - now keyed by email-password
-interface TestUser {
-  email: string;
-  cookies?: any[]; // Cached cookies
+// Cache for authenticated users keyed by profile name
+interface CachedUser {
+  config: TestUserConfig;
+  cookies?: any[];
 }
 
-// Cache for authenticated users keyed by "email-password"
-const userCache: Record<string, TestUser> = {};
+const userCache: Record<string, CachedUser> = {};
+
+/**
+ * Load the runtime state written by global-setup.ts.
+ * Falls back to the static config if the state file doesn't exist
+ * (e.g. when running a single test file without global setup).
+ */
+function loadUserState(): Record<string, TestUserState> | null {
+  try {
+    if (fs.existsSync(TEST_USERS_STATE_PATH)) {
+      return JSON.parse(fs.readFileSync(TEST_USERS_STATE_PATH, "utf-8"));
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
+}
+
+/**
+ * Resolve user config for a profile, preferring runtime state from global setup.
+ */
+function resolveUserConfig(profileName: string): TestUserConfig {
+  const state = loadUserState();
+  if (state && state[profileName]) {
+    return {
+      email: state[profileName].email,
+      password: state[profileName].password,
+    };
+  }
+  // Fallback to static config
+  return testUsers[profileName];
+}
 
 // Extended test interface
 interface TestFixtures {
-  email?: string; // Email to authenticate as
-  password?: string; // Password to authenticate with
+  user?: string; // Profile name from testUsers config
+  email?: string; // Derived from user profile (for assertions in tests)
 }
 
-interface WorkerFixtures {
-  // Worker-scoped fixtures could go here if needed
-}
+interface WorkerFixtures {}
 
 const COOKIE_NAME = process.env.WORKOS_COOKIE_NAME || "wos-session";
 
@@ -27,32 +62,33 @@ const COOKIE_DOMAIN = process.env.TEST_BASE_URL
   : "localhost";
 
 async function authenticateUser(
-  email: string,
+  profileName: string,
   context: BrowserContext,
 ): Promise<void> {
-  if (!email) {
-    throw new Error("Both email and password are required");
+  const userConfig = resolveUserConfig(profileName);
+  if (!userConfig) {
+    throw new Error(
+      `Unknown test user profile: "${profileName}". Available profiles: ${Object.keys(testUsers).join(", ")}`,
+    );
   }
 
-  // Create cache key from email and password
-  const cacheKey = `${email}`;
-  let user = userCache[cacheKey];
+  let cached = userCache[profileName];
 
-  // Initialize user in cache if not exists
-  if (!user) {
-    user = userCache[cacheKey] = {
-      email,
-    };
+  // Initialize cache entry if not exists
+  if (!cached) {
+    cached = userCache[profileName] = { config: userConfig };
   }
 
   // Check if we have valid cached cookies
-  if (user.cookies) {
-    console.log(`Using cached cookies for user: ${email}`);
-    await context.addCookies(user.cookies);
+  if (cached.cookies) {
+    console.log(`Using cached cookies for user: ${profileName}`);
+    await context.addCookies(cached.cookies);
     return;
   }
 
-  console.log(`Authenticating user: ${email}`);
+  console.log(
+    `Authenticating user: ${profileName} (${userConfig.email}) via ${userConfig.password ? "password" : "magic auth"}`,
+  );
 
   const workosApiKey = process.env.WORKOS_API_KEY;
   const workosClientId = process.env.WORKOS_CLIENT_ID;
@@ -68,21 +104,35 @@ async function authenticateUser(
   });
 
   try {
-    // create a magic auth token
-    const magicAuthToken = await workos.userManagement.createMagicAuth({
-      email,
-    });
+    let authResponse;
 
-    // Step 1: Get tokens from WorkOS API
-    const authResponse = await workos.userManagement.authenticateWithMagicAuth({
-      clientId: workosClientId,
-      code: magicAuthToken.code,
-      email,
-      session: {
-        sealSession: true,
-        cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
-      },
-    });
+    if (userConfig.password) {
+      // Password auth
+      authResponse = await workos.userManagement.authenticateWithPassword({
+        clientId: workosClientId,
+        email: userConfig.email,
+        password: userConfig.password,
+        session: {
+          sealSession: true,
+          cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
+        },
+      });
+    } else {
+      // Magic auth
+      const magicAuthToken = await workos.userManagement.createMagicAuth({
+        email: userConfig.email,
+      });
+
+      authResponse = await workos.userManagement.authenticateWithMagicAuth({
+        clientId: workosClientId,
+        code: magicAuthToken.code,
+        email: userConfig.email,
+        session: {
+          sealSession: true,
+          cookiePassword: process.env.WORKOS_COOKIE_PASSWORD,
+        },
+      });
+    }
 
     const cookie = {
       name: COOKIE_NAME,
@@ -94,29 +144,41 @@ async function authenticateUser(
       sameSite: "Lax" as const,
     };
 
-    // Cache cookies for user
-    user.cookies = [cookie];
+    // Cache cookies for this profile
+    cached.cookies = [cookie];
 
     // Add cookies to current context
-    await context.addCookies(user.cookies);
-    console.log(`Authenticated and cached user: ${email}`);
+    await context.addCookies(cached.cookies);
+    console.log(`Authenticated and cached user: ${profileName}`);
   } catch (error) {
-    console.error(`Authentication failed for user ${email}:`, error);
+    console.error(
+      `Authentication failed for user ${profileName} (${userConfig.email}):`,
+      error,
+    );
     throw error;
   }
 }
 
-// Create extended test with email/password fixtures
+// Create extended test with user profile fixture
 export const test = base.extend<TestFixtures, WorkerFixtures>({
-  email: [undefined, { option: true }], // Email for authentication (optional)
+  user: [undefined, { option: true }],
+
+  // Derive email from the user profile for use in test assertions
+  email: async ({ user }, use) => {
+    if (user) {
+      const config = resolveUserConfig(user);
+      await use(config?.email);
+    } else {
+      await use(undefined);
+    }
+  },
 
   // Override the default page fixture to handle authentication
-  page: async ({ page, email, context }, use) => {
-    if (email) {
-      // Authenticate the user with email/password before providing the page
-      await authenticateUser(email, context);
+  page: async ({ page, user, context }, use) => {
+    if (user) {
+      await authenticateUser(user, context);
     }
-    // If email/password not provided, page remains unauthenticated
+    // If user not provided, page remains unauthenticated
     await use(page);
   },
 });

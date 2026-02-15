@@ -1,5 +1,5 @@
 interface AuthenticateWithWorkOSParams {
-  email: string;
+  userProfile: string;
 }
 
 interface AuthenticateWithWorkOSResponse {
@@ -9,14 +9,32 @@ interface AuthenticateWithWorkOSResponse {
   sealedSession?: string;
 }
 
+interface TestUserState {
+  id: string;
+  email: string;
+  password?: string;
+}
+
 declare namespace Cypress {
   interface Chainable {
-    login(username: string): Chainable<void>;
+    login(userProfile: string): Chainable<void>;
 
     task(
       event: "authenticateWithWorkOS",
       arg: AuthenticateWithWorkOSParams,
       options?: Partial<Loggable & Timeoutable>,
     ): Chainable<AuthenticateWithWorkOSResponse>;
+
+    task(
+      event: "createTestUsers",
+      arg?: undefined,
+      options?: Partial<Loggable & Timeoutable>,
+    ): Chainable<Record<string, TestUserState>>;
+
+    task(
+      event: "deleteTestUsers",
+      arg: Record<string, TestUserState>,
+      options?: Partial<Loggable & Timeoutable>,
+    ): Chainable<null>;
   }
 }

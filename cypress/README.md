@@ -16,7 +16,13 @@ WORKOS_COOKIE_PASSWORD=your_cookie_password
 TEST_BASE_URL=http://localhost:3000
 ```
 
-2. **Run Tests**
+2. **Test Users**
+
+Test users are defined in `../tests/test-users.ts` (shared with Playwright).
+They are created automatically before tests run and deleted afterwards — no
+pre-existing users needed in your WorkOS environment.
+
+3. **Run Tests**
 
 ```bash
 npm run test:cypress        # Headless
@@ -28,8 +34,8 @@ npm run test:cypress:open   # Interactive
 ### **Custom Command**
 
 ```typescript
-// Authenticate as specific user
-cy.login(Cypress.env("TEST_EMAIL"), Cypress.env("TEST_PASSWORD"));
+// Authenticate using a named profile from tests/test-users.ts
+cy.login("magicAuthUser");
 ```
 
 ### **Session Caching**
@@ -45,7 +51,8 @@ cy.login(Cypress.env("TEST_EMAIL"), Cypress.env("TEST_PASSWORD"));
 ```typescript
 describe("Admin Features", () => {
   beforeEach(() => {
-    cy.login(Cypress.env("TEST_EMAIL"), Cypress.env("TEST_PASSWORD"));
+    // Use a named profile — switch to "passwordUser" for password auth
+    cy.login("magicAuthUser");
   });
 
   it("can access admin panel", () => {
@@ -66,10 +73,17 @@ describe("Public Features", () => {
 });
 ```
 
+## User Lifecycle
+
+1. `before()` hook calls `createTestUsers` task — creates all users via WorkOS API
+2. Each test authenticates with `cy.login("profileName")`
+3. `after()` hook calls `deleteTestUsers` task — cleans up all created users
+
 ## Files
 
-- `plugins/workos.ts` - WorkOS authentication plugin
+- `../tests/test-users.ts` - Shared test user profiles
+- `plugins/workos.ts` - WorkOS tasks (create/delete users, authenticate)
 - `support/commands.ts` - Authentication command
-- `support/e2e.ts` - Test configuration
+- `support/e2e.ts` - Lifecycle hooks + test configuration
 - `e2e/authenticated-flows.cy.ts` - Tests for logged-in users
 - `e2e/unauthenticated-flows.cy.ts` - Tests for anonymous users

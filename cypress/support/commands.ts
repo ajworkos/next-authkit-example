@@ -1,31 +1,25 @@
 /**
  * Custom command for programmatic authentication
- * Uses cy.session for caching per username-password combination
- * Follows the same pattern as Playwright tests
+ *
+ * Accepts a user profile name from tests/test-users.ts.
+ * Uses cy.session for caching per profile.
  */
-Cypress.Commands.add("login", (username) => {
-  if (!username) {
-    throw new Error("Username is required");
+Cypress.Commands.add("login", (userProfile: string) => {
+  if (!userProfile) {
+    throw new Error("A user profile name is required");
   }
 
-  // Create cache key from username and password
-  const sessionId = `${username}`;
-
   cy.session(
-    sessionId,
+    userProfile,
     () => {
       const cookieName = Cypress.env("WORKOS_COOKIE_NAME") ?? "wos-session";
 
-      cy.log(`Authenticating user: ${username}`);
+      cy.log(`Authenticating as profile: ${userProfile}`);
 
-      // Step 1: Authenticate with WorkOS API directly (same as Playwright)
       return cy
-        .task("authenticateWithWorkOS", {
-          email: username, // Treat username as email
-        })
+        .task("authenticateWithWorkOS", { userProfile })
         .then((authResponse) => {
           cy.log("API authentication successful");
-          // set the wos-session cookie
           cy.setCookie(cookieName, authResponse.sealedSession!);
         });
     },

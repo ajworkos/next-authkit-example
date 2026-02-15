@@ -1,12 +1,10 @@
 import { test, expect } from "./fixtures";
 
-test.use({
-  email: process.env.TEST_EMAIL!,
-  password: process.env.TEST_PASSWORD!,
-});
+// Use a named profile from tests/test-users.ts
+// Switch to "passwordUser" to test with password auth instead
+test.use({ user: "magicAuthUser" });
 
 test.describe("Authenticated User Flows", () => {
-  // Use email/password from environment variables
 
   test("homepage shows authenticated state", async ({ page }) => {
     await page.goto("/");

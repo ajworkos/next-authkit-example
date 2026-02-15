@@ -17,6 +17,12 @@ NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/callback
 TEST_BASE_URL=http://localhost:3000
 ```
 
+**Test Users:**
+
+Test users are defined in `test-users.ts`. They are created automatically before
+tests run and deleted afterwards — no pre-existing users needed in your WorkOS
+environment. Edit the emails and passwords in the config to match your needs.
+
 **Run Tests:**
 
 ```bash
@@ -34,9 +40,11 @@ import { test, expect } from "./fixtures";
 **Authenticated tests:**
 
 ```typescript
-test.describe("Admin Features", () => {
-  test.use({ email: "testuser@test.com", password: "password" });
+// Use a named profile from test-users.ts
+// Switch to "passwordUser" to test with password auth instead
+test.use({ user: "magicAuthUser" });
 
+test.describe("Admin Features", () => {
   test("admin panel access", async ({ page }) => {
     await page.goto("/admin"); // Already authenticated
   });
@@ -59,11 +67,16 @@ test.describe("Public Features", () => {
 
 **Flow:**
 
-1. API authentication via WorkOS SDK
-2. Set the WorkOS session cookie in the browser
+1. Global setup creates test users via the WorkOS API
+2. Each test authenticates programmatically (password or magic auth, auto-detected)
+3. The sealed session cookie is injected into the browser context
+4. Global teardown deletes all created test users
 
 ## Files
 
+- `test-users.ts` - Test user profiles (shared with Cypress)
+- `global-setup.ts` - Creates test users before all tests
+- `global-teardown.ts` - Deletes test users after all tests
 - `fixtures.ts` - Authentication fixture system
 - `authenticated-flows.spec.ts` - Tests for authenticated users
 - `unauthenticated-flows.spec.ts` - Tests for unauthenticated users
